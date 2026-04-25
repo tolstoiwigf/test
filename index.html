@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+<meta name="theme-color" content="#0b3d2e" />
+<title>Calculadora de Aposentadoria — Renda Real</title>
+<style>
+  :root{
+    --bg:#f5f4ef;
+    --card:#ffffff;
+    --ink:#1a1f1c;
+    --muted:#5b6b62;
+    --accent:#0b3d2e;
+    --accent2:#1f7a5a;
+    --warn:#a8410f;
+    --good:#177245;
+    --bad:#9a1f1f;
+    --border:#e2e0d8;
+    --table-stripe:#fbfaf6;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.45}
+  body{padding:14px 12px 60px;max-width:760px;margin:0 auto}
+  header{margin-bottom:16px}
+  h1{font-size:22px;margin:0 0 4px;color:var(--accent);letter-spacing:-0.01em}
+  h2{font-size:17px;margin:0 0 10px;color:var(--accent);border-bottom:1px solid var(--border);padding-bottom:6px}
+  h3{font-size:15px;margin:14px 0 6px;color:var(--ink)}
+  p{margin:6px 0}
+  .meta{color:var(--muted);font-size:12px;line-height:1.4}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin:12px 0;box-shadow:0 1px 0 rgba(0,0,0,0.02)}
+  .row{display:flex;flex-wrap:wrap;gap:10px}
+  .col{flex:1 1 140px;min-width:140px}
+  label{display:block;font-size:13px;color:var(--muted);margin-bottom:3px}
+  input[type=number],select{
+    width:100%;padding:10px 11px;border:1px solid var(--border);border-radius:8px;
+    font-size:16px;background:#fff;color:var(--ink);
+    -webkit-appearance:none;appearance:none;font-family:inherit
+  }
+  select{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%23333' stroke-width='1.5'/></svg>");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+  input:focus,select:focus{outline:none;border-color:var(--accent2);box-shadow:0 0 0 3px rgba(31,122,90,0.15)}
+  button{
+    background:var(--accent);color:#fff;border:none;border-radius:8px;
+    padding:12px 16px;font-size:15px;font-weight:600;cursor:pointer;width:100%;margin-top:6px;font-family:inherit
+  }
+  button:active{background:var(--accent2)}
+  table{width:100%;border-collapse:collapse;margin-top:6px;font-size:13px}
+  th,td{text-align:left;padding:7px 6px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{font-weight:600;color:var(--muted);background:var(--table-stripe);font-size:12px;text-transform:uppercase;letter-spacing:0.02em}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:#eef0ec;color:var(--muted)}
+  .pill.live{background:#dff3e8;color:var(--good)}
+  .pill.fallback{background:#fbe9d6;color:var(--warn)}
+  .kv{display:flex;justify-content:space-between;border-bottom:1px dotted var(--border);padding:5px 0;font-size:14px}
+  .kv:last-child{border-bottom:none}
+  .kv .k{color:var(--muted)}
+  .kv .v{font-weight:600;font-variant-numeric:tabular-nums}
+  .ok{color:var(--good)}
+  .alert{color:var(--bad)}
+  .hint{font-size:12px;color:var(--muted);margin-top:2px}
+  .source{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.4}
+  details{margin-top:8px}
+  summary{cursor:pointer;font-size:13px;color:var(--accent2);font-weight:600}
+  .big{font-size:20px;font-weight:700}
+  .stack > * + *{margin-top:6px}
+  .badge{display:inline-block;font-size:10px;padding:1px 6px;border-radius:4px;background:#eef0ec;color:var(--muted);margin-left:6px;vertical-align:middle}
+  @media (max-width: 420px){
+    body{padding:10px 8px 50px}
+    h1{font-size:19px}
+    .card{padding:11px}
+    th,td{padding:6px 4px;font-size:12px}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Calculadora de Aposentadoria</h1>
+  <p class="meta">Planeje sua renda em <strong>termos reais</strong> (acima da inflação), com sugestão de carteira em Tesouro Direto, LCI/LCA e CDB.</p>
+  <p class="meta" id="updatedAt">Carregando taxas…</p>
+</header>
+
+<section class="card" id="cenarioAtual">
+  <h2>Cenário Atual <span id="dataStatus" class="pill">…</span></h2>
+  <div class="stack" id="cenarioGrid">
+    <div class="kv"><span class="k">Selic meta (a.a.)</span><span class="v" id="kSelic">—</span></div>
+    <div class="kv"><span class="k">IPCA 12 meses</span><span class="v" id="kIpca12">—</span></div>
+    <div class="kv"><span class="k">Projeção IPCA próximos 12m (Focus)</span><span class="v" id="kIpcaFocus12">—</span></div>
+    <div class="kv"><span class="k">Projeção IPCA fim do ano (Focus)</span><span class="v" id="kIpcaFocusYE">—</span></div>
+    <div class="kv"><span class="k">CDI estimado (Selic − 0,10)</span><span class="v" id="kCdi">—</span></div>
+  </div>
+  <details>
+    <summary>Tesouro Direto — taxas atuais</summary>
+    <div id="tdTable"></div>
+  </details>
+  <p class="source" id="sources"></p>
+</section>
+
+<section class="card">
+  <h2>Seus Dados</h2>
+  <div class="row">
+    <div class="col">
+      <label for="idade">Idade atual</label>
+      <input type="number" id="idade" value="35" min="14" max="90" inputmode="numeric" />
+    </div>
+    <div class="col">
+      <label for="idadeApos">Idade de aposentadoria</label>
+      <input type="number" id="idadeApos" value="60" min="20" max="95" inputmode="numeric" />
+    </div>
+    <div class="col">
+      <label for="expVida">Expectativa de vida</label>
+      <input type="number" id="expVida" value="90" min="50" max="110" inputmode="numeric" />
+    </div>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <div class="col">
+      <label for="patrim">Patrimônio atual (R$)</label>
+      <input type="number" id="patrim" value="50000" min="0" step="100" inputmode="decimal" />
+    </div>
+    <div class="col">
+      <label for="aporte">Aporte mensal (R$)</label>
+      <input type="number" id="aporte" value="2000" min="0" step="50" inputmode="decimal" />
+    </div>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <div class="col">
+      <label for="rendaAlvo">Renda mensal desejada (R$ de hoje)</label>
+      <input type="number" id="rendaAlvo" value="8000" min="0" step="100" inputmode="decimal" />
+    </div>
+    <div class="col">
+      <label for="perfil">Perfil de risco</label>
+      <select id="perfil">
+        <option value="conservador">Conservador</option>
+        <option value="moderado" selected>Moderado</option>
+        <option value="arrojado">Arrojado</option>
+      </select>
+    </div>
+  </div>
+  <button id="calcular">Calcular</button>
+  <p class="hint">Todos os valores em R$ de hoje. As projeções usam taxas reais (descontada a inflação) e o IR já abatido conforme tabela regressiva (15% para horizonte > 720 dias).</p>
+</section>
+
+<section class="card" id="resultadoCard" style="display:none">
+  <h2>Resultado</h2>
+  <div id="resumoMain" class="stack"></div>
+  <h3>Análise de gap</h3>
+  <div id="gap" class="stack"></div>
+  <details>
+    <summary>Premissas usadas</summary>
+    <div id="premissas" class="stack" style="margin-top:6px"></div>
+  </details>
+</section>
+
+<section class="card" id="carteiraCard" style="display:none">
+  <h2>Carteira Sugerida</h2>
+  <p class="meta" id="carteiraIntro"></p>
+  <div id="carteiraTable"></div>
+  <p class="hint">Reserva de emergência (6 meses de despesas estimadas) é alocada em Tesouro Selic <strong>antes</strong> da carteira de longo prazo. As alocações abaixo se referem ao restante.</p>
+  <div class="kv" style="margin-top:8px">
+    <span class="k">Taxa real líquida ponderada da carteira (a.a.)</span>
+    <span class="v" id="kCartReal">—</span>
+  </div>
+</section>
+
+<p class="source" style="margin-top:24px">
+  Esta ferramenta é educacional. Não constitui recomendação de investimento. Consulte um profissional habilitado para decisões financeiras.
+</p>
+
+<script>
+"use strict";
+
+/* =============================================================
+   FALLBACKS — capturados em maio/2025 (knowledge cutoff).
+   Atualizados ao vivo sempre que as APIs do BCB / Tesouro
+   permitirem CORS no navegador do usuário.
+============================================================= */
+const FALLBACK_DATE = "maio/2025";
+const FALLBACK = {
+  selicMeta: 14.75,           // % a.a.
+  ipca12m:   5.32,            // % a.a. (acumulado 12m)
+  focusIpca12m: 4.50,         // % a.a. (mediana próximos 12m)
+  focusIpcaYE:  4.80,         // % a.a. (fim do ano corrente)
+  tesouroFetched: false,
+  tesouro: [
+    // Tesouro Selic (pós-fixado)
+    { nome:"Tesouro Selic 2029",            tipo:"SELIC",     vencimento:"2029-03-01", taxaAnual: 0.10,  indexador:"SELIC" },
+    { nome:"Tesouro Selic 2031",            tipo:"SELIC",     vencimento:"2031-03-01", taxaAnual: 0.13,  indexador:"SELIC" },
+    // Prefixado
+    { nome:"Tesouro Prefixado 2027",        tipo:"PREFIXADO", vencimento:"2027-01-01", taxaAnual: 13.80, indexador:"PRE"   },
+    { nome:"Tesouro Prefixado 2029",        tipo:"PREFIXADO", vencimento:"2029-01-01", taxaAnual: 14.10, indexador:"PRE"   },
+    { nome:"Tesouro Prefixado JS 2031",     tipo:"PREFIXADO_JS", vencimento:"2031-01-01", taxaAnual: 14.05, indexador:"PRE" },
+    // IPCA+
+    { nome:"Tesouro IPCA+ 2029",            tipo:"IPCA",      vencimento:"2029-05-15", taxaAnual: 7.30,  indexador:"IPCA"  },
+    { nome:"Tesouro IPCA+ 2035",            tipo:"IPCA",      vencimento:"2035-05-15", taxaAnual: 7.20,  indexador:"IPCA"  },
+    { nome:"Tesouro IPCA+ 2045",            tipo:"IPCA",      vencimento:"2045-05-15", taxaAnual: 7.10,  indexador:"IPCA"  },
+    { nome:"Tesouro IPCA+ JS 2032",         tipo:"IPCA_JS",   vencimento:"2032-08-15", taxaAnual: 7.20,  indexador:"IPCA"  },
+    { nome:"Tesouro IPCA+ JS 2050",         tipo:"IPCA_JS",   vencimento:"2050-08-15", taxaAnual: 7.05,  indexador:"IPCA"  },
+    // RendA+
+    { nome:"Tesouro RendA+ 2030",           tipo:"RENDA_MAIS",vencimento:"2030-01-15", taxaAnual: 7.15,  indexador:"IPCA"  },
+    { nome:"Tesouro RendA+ 2040",           tipo:"RENDA_MAIS",vencimento:"2040-01-15", taxaAnual: 7.00,  indexador:"IPCA"  },
+    { nome:"Tesouro RendA+ 2065",           tipo:"RENDA_MAIS",vencimento:"2065-01-15", taxaAnual: 6.90,  indexador:"IPCA"  }
+  ]
+};
+
+/* =============================================================
+   ESTADO GLOBAL
+============================================================= */
+const state = {
+  selicMeta: FALLBACK.selicMeta,
+  ipca12m:   FALLBACK.ipca12m,
+  focusIpca12m: FALLBACK.focusIpca12m,
+  focusIpcaYE:  FALLBACK.focusIpcaYE,
+  tesouro:   FALLBACK.tesouro,
+  liveBCB:   false,
+  liveFocus: false,
+  liveTD:    false,
+  fetchedAt: null,
+  errors: []
+};
+
+/* =============================================================
+   FORMATAÇÃO pt-BR
+============================================================= */
+const nfMoney = new Intl.NumberFormat("pt-BR", { style:"currency", currency:"BRL", minimumFractionDigits:2, maximumFractionDigits:2 });
+const nfPct   = new Intl.NumberFormat("pt-BR", { minimumFractionDigits:2, maximumFractionDigits:2 });
+const nfInt   = new Intl.NumberFormat("pt-BR", { maximumFractionDigits:0 });
+const nfDec   = new Intl.NumberFormat("pt-BR", { minimumFractionDigits:1, maximumFractionDigits:1 });
+
+function fmtMoney(v){ if(!isFinite(v)) return "—"; return nfMoney.format(v); }
+function fmtPct(v){ if(!isFinite(v)) return "—"; return nfPct.format(v) + "%"; }
+function fmtInt(v){ if(!isFinite(v)) return "—"; return nfInt.format(v); }
+function fmtDec(v){ if(!isFinite(v)) return "—"; return nfDec.format(v); }
+function fmtVencimento(iso){
+  if(!iso) return "—";
+  const d = new Date(iso + "T12:00:00Z");
+  if(isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric" });
+}
+function nowBR(){
+  return new Date().toLocaleString("pt-BR", {
+    day:"2-digit", month:"2-digit", year:"numeric",
+    hour:"2-digit", minute:"2-digit"
+  });
+}
+
+/* =============================================================
+   FETCH com timeout e fallback
+============================================================= */
+function fetchTimeout(url, ms){
+  return new Promise((resolve, reject) => {
+    const ctrl = (typeof AbortController !== "undefined") ? new AbortController() : null;
+    const t = setTimeout(() => {
+      if(ctrl) ctrl.abort();
+      reject(new Error("timeout"));
+    }, ms);
+    const opts = ctrl ? { signal: ctrl.signal } : {};
+    fetch(url, opts)
+      .then(r => { clearTimeout(t); if(!r.ok) reject(new Error("HTTP "+r.status)); else resolve(r); })
+      .catch(e => { clearTimeout(t); reject(e); });
+  });
+}
+
+async function loadBCB(){
+  // Selic meta (432) e IPCA 12m (13522) — ambos têm CORS habilitado.
+  try{
+    const r1 = await fetchTimeout("https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados/ultimos/1?formato=json", 8000);
+    const j1 = await r1.json();
+    if(Array.isArray(j1) && j1[0] && j1[0].valor){
+      state.selicMeta = parseFloat(String(j1[0].valor).replace(",", "."));
+    }
+    const r2 = await fetchTimeout("https://api.bcb.gov.br/dados/serie/bcdata.sgs.13522/dados/ultimos/1?formato=json", 8000);
+    const j2 = await r2.json();
+    if(Array.isArray(j2) && j2[0] && j2[0].valor){
+      state.ipca12m = parseFloat(String(j2[0].valor).replace(",", "."));
+    }
+    state.liveBCB = true;
+  }catch(e){
+    state.errors.push("BCB SGS: " + e.message);
+  }
+}
+
+async function loadFocus(){
+  // Olinda Focus — Expectativas anuais. Filtra Indicador=IPCA, ano corrente e seguinte, baseCalculo=0.
+  try{
+    const ano = new Date().getFullYear();
+    const url = "https://olinda.bcb.gov.br/olinda/servico/Expectativas/versao/v1/odata/ExpectativasMercadoAnuais?$top=80&$orderby=Data%20desc&$format=json&$filter=Indicador%20eq%20'IPCA'%20and%20baseCalculo%20eq%200%20and%20(DataReferencia%20eq%20'"+ano+"'%20or%20DataReferencia%20eq%20'"+(ano+1)+"')";
+    const r = await fetchTimeout(url, 9000);
+    const j = await r.json();
+    const rows = j && j.value ? j.value : [];
+    // mais recente para ano corrente
+    const ye = rows.find(x => String(x.DataReferencia) === String(ano));
+    if(ye && typeof ye.Mediana === "number") state.focusIpcaYE = ye.Mediana;
+    // próximos 12m: aproximamos pela mediana mais recente do ano seguinte
+    const nx = rows.find(x => String(x.DataReferencia) === String(ano+1));
+    if(nx && typeof nx.Mediana === "number") state.focusIpca12m = nx.Mediana;
+    state.liveFocus = true;
+  }catch(e){
+    state.errors.push("Focus: " + e.message);
+  }
+}
+
+async function loadTesouro(){
+  // Tesouro Direto JSON
+  try{
+    const r = await fetchTimeout("https://www.tesourodireto.com.br/json/br/com/b3/tesourodireto/service/api/treasurybondsinfo.json", 10000);
+    const j = await r.json();
+    const list = (j && j.response && j.response.TrsrBdTradgList) ? j.response.TrsrBdTradgList : [];
+    const out = [];
+    for(const item of list){
+      const b = item.TrsrBd; if(!b) continue;
+      const nome = b.nm || "";
+      const venc = b.mtrtyDt ? b.mtrtyDt.substring(0,10) : null;
+      const taxa = (typeof b.anulInvstmtRate === "number") ? b.anulInvstmtRate
+                 : (typeof b.anulRedRate === "number") ? b.anulRedRate
+                 : null;
+      if(taxa == null || !venc) continue;
+      let tipo = "PREFIXADO", indexador="PRE";
+      const upper = nome.toUpperCase();
+      if(upper.indexOf("SELIC") >= 0){ tipo="SELIC"; indexador="SELIC"; }
+      else if(upper.indexOf("IPCA") >= 0){
+        tipo = (upper.indexOf("JUROS SEMESTRAIS") >= 0) ? "IPCA_JS" : "IPCA";
+        indexador="IPCA";
+      } else if(upper.indexOf("RENDA") >= 0){
+        tipo="RENDA_MAIS"; indexador="IPCA";
+      } else if(upper.indexOf("EDUCA") >= 0){
+        tipo="EDUCA_MAIS"; indexador="IPCA";
+      } else if(upper.indexOf("JUROS SEMESTRAIS") >= 0){
+        tipo="PREFIXADO_JS"; indexador="PRE";
+      }
+      out.push({ nome, tipo, vencimento:venc, taxaAnual:taxa, indexador });
+    }
+    if(out.length){
+      state.tesouro = out;
+      state.liveTD = true;
+    }
+  }catch(e){
+    state.errors.push("Tesouro Direto: " + e.message);
+  }
+}
+
+/* =============================================================
+   IR REGRESSIVO
+============================================================= */
+function aliquotaIR(diasUteis){
+  if(diasUteis <= 180) return 0.225;
+  if(diasUteis <= 360) return 0.20;
+  if(diasUteis <= 720) return 0.175;
+  return 0.15;
+}
+
+/* =============================================================
+   TAXAS REAIS LÍQUIDAS
+   - Para cada instrumento, dado um horizonte (anos) e IPCA esperado,
+     calcular a taxa real líquida anual.
+============================================================= */
+function realLiquido({tipo, taxaAnual, indexador}, horizonteAnos, selic, ipca){
+  const dias = Math.max(1, Math.round(horizonteAnos * 365));
+  const ir = aliquotaIR(dias);
+  const i = ipca/100;
+  let nominalAnual; // taxa nominal bruta a.a.
+  let irAplica = true;
+  let isLci = false;
+
+  if(tipo === "SELIC"){
+    // taxaAnual é o spread sobre Selic (em pontos %). nominal ≈ Selic + spread
+    nominalAnual = (selic + taxaAnual)/100;
+  } else if(tipo === "PREFIXADO" || tipo === "PREFIXADO_JS"){
+    nominalAnual = taxaAnual/100;
+  } else if(tipo === "IPCA" || tipo === "IPCA_JS" || tipo === "RENDA_MAIS" || tipo === "EDUCA_MAIS"){
+    // (1+IPCA)*(1+r) - 1
+    nominalAnual = (1 + i) * (1 + taxaAnual/100) - 1;
+  } else if(tipo === "LCI" || tipo === "LCA"){
+    // taxaAnual aqui interpretamos como % do CDI; CDI ≈ Selic - 0.10
+    const cdi = (selic - 0.10)/100;
+    nominalAnual = cdi * (taxaAnual/100);
+    irAplica = false; isLci = true;
+  } else if(tipo === "CDB"){
+    const cdi = (selic - 0.10)/100;
+    nominalAnual = cdi * (taxaAnual/100);
+  } else {
+    nominalAnual = taxaAnual/100;
+  }
+
+  const nominalLiq = irAplica ? nominalAnual * (1 - ir) : nominalAnual;
+  const realLiq = (1 + nominalLiq) / (1 + i) - 1;
+  return {
+    nominalAnual: nominalAnual*100,
+    nominalLiqAnual: nominalLiq*100,
+    realLiqAnual: realLiq*100,
+    ir: irAplica ? ir : 0,
+    isLci
+  };
+}
+
+/* =============================================================
+   SELEÇÃO DE TÍTULOS PARA A CARTEIRA
+============================================================= */
+function escolherTesouroSelicCurto(){
+  const lista = state.tesouro.filter(t => t.tipo === "SELIC")
+    .sort((a,b) => a.vencimento.localeCompare(b.vencimento));
+  return lista[0] || null;
+}
+function escolherIPCAporHorizonte(anosAlvo){
+  // pega IPCA+ "puro" mais próximo do horizonte
+  const lista = state.tesouro.filter(t => t.tipo === "IPCA" || t.tipo === "RENDA_MAIS")
+    .map(t => ({ t, anos: anosAteVenc(t.vencimento) }))
+    .sort((a,b) => Math.abs(a.anos - anosAlvo) - Math.abs(b.anos - anosAlvo));
+  return lista[0] ? lista[0].t : null;
+}
+function escolherPrefixado(anosMin){
+  const lista = state.tesouro.filter(t => (t.tipo === "PREFIXADO" || t.tipo === "PREFIXADO_JS"))
+    .map(t => ({ t, anos: anosAteVenc(t.vencimento) }))
+    .filter(x => x.anos >= anosMin)
+    .sort((a,b) => a.anos - b.anos);
+  return lista[0] ? lista[0].t : (state.tesouro.find(t=>t.tipo==="PREFIXADO") || null);
+}
+function anosAteVenc(iso){
+  if(!iso) return 0;
+  const d = new Date(iso + "T12:00:00Z").getTime();
+  if(isNaN(d)) return 0;
+  return Math.max(0.1, (d - Date.now()) / (365.25*86400*1000));
+}
+
+/* =============================================================
+   PERFIS
+============================================================= */
+function montarCarteira(perfil, horizonteAnos){
+  // alocações % (sobre o total ex-reserva)
+  let alocacao;
+  if(perfil === "conservador"){
+    alocacao = [
+      { classe:"Tesouro Selic",  pct:50, fn: () => escolherTesouroSelicCurto(),
+        descricao:"Liquidez e proteção ao CDI" },
+      { classe:"Tesouro IPCA+",  pct:30, fn: () => escolherIPCAporHorizonte(Math.min(horizonteAnos, 7)),
+        descricao:"Inflação + juro real, vencimento curto" },
+      { classe:"LCI/LCA",        pct:20, fn: () => ({ nome:"LCI/LCA 95% CDI (12-24m)", tipo:"LCI", taxaAnual:95, vencimento:isoMaisAnos(2), indexador:"CDI" }),
+        descricao:"Isento de IR; 12-24 meses" }
+    ];
+  } else if(perfil === "arrojado"){
+    alocacao = [
+      { classe:"Tesouro IPCA+",  pct:45, fn: () => escolherIPCAporHorizonte(Math.max(horizonteAnos, 12)),
+        descricao:"Juro real longo" },
+      { classe:"Tesouro Prefixado", pct:25, fn: () => escolherPrefixado(4),
+        descricao:"Trava de taxa nominal" },
+      { classe:"LCI/LCA",        pct:15, fn: () => ({ nome:"LCI/LCA 92% CDI (24-36m)", tipo:"LCI", taxaAnual:92, vencimento:isoMaisAnos(3), indexador:"CDI" }),
+        descricao:"Isento de IR" },
+      { classe:"CDB liquidez diária", pct:15, fn: () => ({ nome:"CDB 110% CDI (>720d)", tipo:"CDB", taxaAnual:110, vencimento:isoMaisAnos(3), indexador:"CDI" }),
+        descricao:"Diversifica emissor" }
+    ];
+  } else { // moderado
+    alocacao = [
+      { classe:"Tesouro IPCA+",  pct:35, fn: () => escolherIPCAporHorizonte(Math.max(horizonteAnos, 8)),
+        descricao:"Juro real médio/longo" },
+      { classe:"LCI/LCA",        pct:25, fn: () => ({ nome:"LCI/LCA 94% CDI (24m)", tipo:"LCI", taxaAnual:94, vencimento:isoMaisAnos(2), indexador:"CDI" }),
+        descricao:"Isento de IR; 24 meses" },
+      { classe:"Tesouro Prefixado", pct:20, fn: () => escolherPrefixado(3),
+        descricao:"Trava parcial de taxa nominal" },
+      { classe:"Tesouro Selic",  pct:20, fn: () => escolherTesouroSelicCurto(),
+        descricao:"Liquidez e amortecedor" }
+    ];
+  }
+
+  const itens = alocacao.map(a => {
+    const t = a.fn();
+    if(!t) return null;
+    const r = realLiquido(t, horizonteAnos, state.selicMeta, state.focusIpca12m);
+    return Object.assign({}, a, {
+      titulo: t,
+      nominalBruta: r.nominalAnual,
+      nominalLiq: r.nominalLiqAnual,
+      realLiq: r.realLiqAnual,
+      ir: r.ir
+    });
+  }).filter(Boolean);
+
+  // normaliza pcts caso algum item caia
+  const total = itens.reduce((s,x)=>s+x.pct,0) || 1;
+  itens.forEach(x => x.pct = x.pct * 100 / total);
+
+  const realCarteira = itens.reduce((s,x) => s + x.pct/100 * x.realLiq, 0);
+  return { itens, realCarteira };
+}
+
+function isoMaisAnos(n){
+  const d = new Date();
+  d.setFullYear(d.getFullYear() + n);
+  return d.toISOString().substring(0,10);
+}
+
+/* =============================================================
+   PROJEÇÕES (em termos REAIS — R$ de hoje)
+============================================================= */
+function fvComAportes(P, C, rMensal, n){
+  if(rMensal === 0) return P + C*n;
+  return P * Math.pow(1+rMensal, n) + C * (Math.pow(1+rMensal, n) - 1) / rMensal;
+}
+function rendaSustentavelMensal(P, rMensal, n){
+  if(n <= 0) return 0;
+  if(rMensal === 0) return P / n;
+  return P * rMensal / (1 - Math.pow(1+rMensal, -n));
+}
+function aporteParaAtingir(FVAlvo, P, rMensal, n){
+  if(n <= 0) return Infinity;
+  if(rMensal === 0) return Math.max(0, (FVAlvo - P)/n);
+  const fvP = P * Math.pow(1+rMensal, n);
+  const denom = (Math.pow(1+rMensal, n) - 1) / rMensal;
+  return Math.max(0, (FVAlvo - fvP) / denom);
+}
+function patrimonioParaRenda(rendaMensal, rMensal, nMeses){
+  if(nMeses <= 0) return 0;
+  if(rMensal === 0) return rendaMensal * nMeses;
+  return rendaMensal * (1 - Math.pow(1+rMensal, -nMeses)) / rMensal;
+}
+function aaToMensal(taxaAnualPct){
+  return Math.pow(1 + taxaAnualPct/100, 1/12) - 1;
+}
+function mesesParaAtingir(P, C, rMensal, FVAlvo){
+  if(P >= FVAlvo) return 0;
+  if(C <= 0 && rMensal <= 0) return Infinity;
+  // busca por aproximação
+  let lo = 0, hi = 12*120;
+  for(let i=0;i<60;i++){
+    const mid = (lo+hi)/2;
+    const fv = fvComAportes(P, C, rMensal, mid);
+    if(fv >= FVAlvo) hi = mid; else lo = mid;
+  }
+  return hi;
+}
+
+/* =============================================================
+   RENDER
+============================================================= */
+function renderCenario(){
+  document.getElementById("kSelic").textContent = fmtPct(state.selicMeta);
+  document.getElementById("kIpca12").textContent = fmtPct(state.ipca12m);
+  document.getElementById("kIpcaFocus12").textContent = fmtPct(state.focusIpca12m);
+  document.getElementById("kIpcaFocusYE").textContent = fmtPct(state.focusIpcaYE);
+  document.getElementById("kCdi").textContent = fmtPct(Math.max(0, state.selicMeta - 0.10));
+
+  const liveAll = state.liveBCB && state.liveFocus && state.liveTD;
+  const liveAny = state.liveBCB || state.liveFocus || state.liveTD;
+  const badge = document.getElementById("dataStatus");
+  if(liveAll){ badge.textContent = "ao vivo"; badge.className = "pill live"; }
+  else if(liveAny){ badge.textContent = "parcialmente ao vivo"; badge.className = "pill live"; }
+  else { badge.textContent = "offline (fallback "+FALLBACK_DATE+")"; badge.className = "pill fallback"; }
+
+  document.getElementById("updatedAt").innerHTML =
+    "Última atualização: <strong>" + nowBR() + "</strong>" +
+    (liveAll ? "" : " &middot; alguns dados são fallback de " + FALLBACK_DATE);
+
+  // tabela TD
+  const tb = state.tesouro.slice().sort((a,b) => a.vencimento.localeCompare(b.vencimento));
+  let html = '<table><thead><tr><th>Título</th><th class="num">Taxa a.a.</th><th>Vencimento</th></tr></thead><tbody>';
+  for(const t of tb){
+    const tx = (t.tipo === "SELIC") ? ("Selic + " + fmtDec(t.taxaAnual) + "%")
+             : (t.tipo === "IPCA" || t.tipo === "IPCA_JS" || t.tipo === "RENDA_MAIS" || t.tipo === "EDUCA_MAIS")
+                ? ("IPCA + " + fmtDec(t.taxaAnual) + "%")
+                : (fmtDec(t.taxaAnual) + "%");
+    html += "<tr><td>"+t.nome+"</td><td class='num'>"+tx+"</td><td>"+fmtVencimento(t.vencimento)+"</td></tr>";
+  }
+  html += "</tbody></table>";
+  document.getElementById("tdTable").innerHTML = html;
+
+  // fontes
+  const srcs = [];
+  srcs.push((state.liveBCB?"✓":"✗")+" BCB SGS (Selic 432, IPCA 13522)");
+  srcs.push((state.liveFocus?"✓":"✗")+" BCB Olinda Focus (Expectativas IPCA)");
+  srcs.push((state.liveTD?"✓":"✗")+" Tesouro Direto (treasurybondsinfo.json)");
+  let s = "Fontes: " + srcs.join(" &middot; ");
+  if(state.errors.length){ s += "<br>Erros: " + state.errors.map(e => e.replace(/</g,"&lt;")).join(" | "); }
+  s += "<br>Fallbacks capturados em " + FALLBACK_DATE + ".";
+  document.getElementById("sources").innerHTML = s;
+}
+
+function renderResultado(){
+  const idade = +document.getElementById("idade").value;
+  const idadeApos = +document.getElementById("idadeApos").value;
+  const expVida = +document.getElementById("expVida").value;
+  const patrim = +document.getElementById("patrim").value;
+  const aporte = +document.getElementById("aporte").value;
+  const rendaAlvo = +document.getElementById("rendaAlvo").value;
+  const perfil = document.getElementById("perfil").value;
+
+  if(!(idadeApos > idade) || !(expVida > idadeApos)){
+    alert("Verifique as idades: aposentadoria > atual e expectativa de vida > aposentadoria.");
+    return;
+  }
+
+  const anosAcum = idadeApos - idade;
+  const anosApos = expVida - idadeApos;
+  const mesesAcum = anosAcum * 12;
+  const mesesApos = anosApos * 12;
+
+  // Reserva de emergência: 6× renda alvo (carved out, fica em Selic — neutra na carteira)
+  const reservaMin = rendaAlvo * 6;
+
+  const carteira = montarCarteira(perfil, anosAcum);
+  const realAA = carteira.realCarteira;     // % a.a. real líquido ponderado
+  const realMM = aaToMensal(realAA);
+
+  // Acumulação
+  const fv = fvComAportes(patrim, aporte, realMM, mesesAcum);
+  // Patrimônio necessário para a renda alvo durante a aposentadoria
+  const patrimNecessario = patrimonioParaRenda(rendaAlvo, realMM, mesesApos);
+  // Renda sustentável dado o patrimônio projetado
+  const rendaSust = rendaSustentavelMensal(fv, realMM, mesesApos);
+  // Aporte necessário para fechar gap
+  const aporteNecessario = aporteParaAtingir(patrimNecessario, patrim, realMM, mesesAcum);
+  // Tempo até atingir alvo com o aporte atual
+  const mesesAteAlvo = mesesParaAtingir(patrim, aporte, realMM, patrimNecessario);
+
+  const card = document.getElementById("resultadoCard");
+  card.style.display = "";
+
+  const main = [];
+  main.push('<div class="kv"><span class="k">Anos até a aposentadoria</span><span class="v">'+fmtInt(anosAcum)+'</span></div>');
+  main.push('<div class="kv"><span class="k">Anos de aposentadoria projetados</span><span class="v">'+fmtInt(anosApos)+'</span></div>');
+  main.push('<div class="kv"><span class="k">Taxa real líquida estimada (carteira)</span><span class="v">'+fmtPct(realAA)+' a.a.</span></div>');
+  main.push('<div class="kv"><span class="k">Patrimônio projetado na aposentadoria</span><span class="v big">'+fmtMoney(fv)+'</span></div>');
+  main.push('<div class="kv"><span class="k">Renda mensal sustentável (R$ de hoje)</span><span class="v big '+(rendaSust>=rendaAlvo?'ok':'alert')+'">'+fmtMoney(rendaSust)+'</span></div>');
+  document.getElementById("resumoMain").innerHTML = main.join("");
+
+  const gap = [];
+  gap.push('<div class="kv"><span class="k">Patrimônio-alvo (para renda desejada)</span><span class="v">'+fmtMoney(patrimNecessario)+'</span></div>');
+  const dif = fv - patrimNecessario;
+  gap.push('<div class="kv"><span class="k">Diferença</span><span class="v '+(dif>=0?'ok':'alert')+'">'+(dif>=0?"+":"")+fmtMoney(dif)+'</span></div>');
+  if(rendaSust < rendaAlvo){
+    gap.push('<div class="kv"><span class="k">Aporte mensal necessário</span><span class="v alert">'+fmtMoney(aporteNecessario)+'</span></div>');
+    if(isFinite(mesesAteAlvo) && mesesAteAlvo > 0){
+      const anos = mesesAteAlvo/12;
+      gap.push('<div class="kv"><span class="k">Tempo p/ atingir alvo (aporte atual)</span><span class="v">'+fmtDec(anos)+' anos</span></div>');
+    }
+  } else {
+    gap.push('<div class="kv"><span class="k ok">Você está acima do alvo</span><span class="v ok">superávit '+fmtMoney(dif)+'</span></div>');
+  }
+  gap.push('<div class="kv"><span class="k">Reserva de emergência sugerida (6× renda alvo)</span><span class="v">'+fmtMoney(reservaMin)+'</span></div>');
+  document.getElementById("gap").innerHTML = gap.join("");
+
+  const prem = [];
+  prem.push('<div class="kv"><span class="k">Inflação esperada (Focus 12m)</span><span class="v">'+fmtPct(state.focusIpca12m)+'</span></div>');
+  prem.push('<div class="kv"><span class="k">IR sobre Tesouro/CDB (>720d)</span><span class="v">15,00%</span></div>');
+  prem.push('<div class="kv"><span class="k">LCI/LCA</span><span class="v">isento de IR</span></div>');
+  prem.push('<div class="kv"><span class="k">Conversão de taxa</span><span class="v">a.a. → a.m. composta</span></div>');
+  prem.push('<div class="kv"><span class="k">Modelo de saque</span><span class="v">anuidade real (saque constante)</span></div>');
+  document.getElementById("premissas").innerHTML = prem.join("");
+
+  // Carteira
+  const cc = document.getElementById("carteiraCard");
+  cc.style.display = "";
+  document.getElementById("carteiraIntro").textContent =
+    "Perfil " + perfil + " · horizonte de " + fmtInt(anosAcum) + " anos. As taxas reais já consideram IR e a inflação esperada (Focus).";
+  let h = '<table><thead><tr><th>Instrumento</th><th class="num">%</th><th class="num">Tx nominal</th><th class="num">Tx real líq.</th><th>Vencimento</th></tr></thead><tbody>';
+  for(const it of carteira.itens){
+    const t = it.titulo;
+    const taxaTxt = (t.tipo==="SELIC") ? ("Selic + " + fmtDec(t.taxaAnual) + "%")
+                   : (t.tipo==="IPCA"||t.tipo==="IPCA_JS"||t.tipo==="RENDA_MAIS"||t.tipo==="EDUCA_MAIS") ? ("IPCA + " + fmtDec(t.taxaAnual) + "%")
+                   : (t.tipo==="LCI"||t.tipo==="LCA"||t.tipo==="CDB") ? (fmtDec(t.taxaAnual) + "% CDI")
+                   : (fmtDec(t.taxaAnual) + "%");
+    h += "<tr><td><strong>"+it.classe+"</strong><br><span class='hint'>"+t.nome+"</span><br><span class='hint'>"+it.descricao+"</span></td>"
+       + "<td class='num'>"+fmtDec(it.pct)+"%</td>"
+       + "<td class='num'>"+taxaTxt+"</td>"
+       + "<td class='num'>"+fmtPct(it.realLiq)+"</td>"
+       + "<td>"+fmtVencimento(t.vencimento)+"</td></tr>";
+  }
+  h += "</tbody></table>";
+  document.getElementById("carteiraTable").innerHTML = h;
+  document.getElementById("kCartReal").textContent = fmtPct(carteira.realCarteira);
+}
+
+/* =============================================================
+   BOOT
+============================================================= */
+async function boot(){
+  // Tenta tudo em paralelo, mas não trava se um falhar
+  await Promise.all([loadBCB(), loadFocus(), loadTesouro()]);
+  state.fetchedAt = new Date();
+  renderCenario();
+  // dispara cálculo inicial
+  try{ renderResultado(); }catch(e){ console.error(e); }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("calcular").addEventListener("click", renderResultado);
+  // recálculo on-the-fly em mudança de inputs (debounce simples)
+  let to = null;
+  const ids = ["idade","idadeApos","expVida","patrim","aporte","rendaAlvo","perfil"];
+  ids.forEach(id => {
+    document.getElementById(id).addEventListener("input", () => {
+      clearTimeout(to);
+      to = setTimeout(renderResultado, 300);
+    });
+  });
+  renderCenario(); // mostra fallback imediatamente
+  boot();
+});
+</script>
+</body>
+</html>
