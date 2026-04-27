@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
 <meta name="theme-color" content="#0b3d2e" />
-<title>Calculadora de Aposentadoria — Renda Real</title>
+<title>Calculadora de Aposentadoria v2 — Renda Real</title>
 <style>
   :root{
     --bg:#f5f4ef;
@@ -37,6 +37,7 @@
     font-size:16px;background:#fff;color:var(--ink);
     -webkit-appearance:none;appearance:none;font-family:inherit
   }
+  input[type=range]{width:100%;margin:4px 0 2px;accent-color:var(--accent2)}
   select{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%23333' stroke-width='1.5'/></svg>");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
   input:focus,select:focus{outline:none;border-color:var(--accent2);box-shadow:0 0 0 3px rgba(31,122,90,0.15)}
   button{
@@ -64,6 +65,19 @@
   .big{font-size:20px;font-weight:700}
   .stack > * + *{margin-top:6px}
   .badge{display:inline-block;font-size:10px;padding:1px 6px;border-radius:4px;background:#eef0ec;color:var(--muted);margin-left:6px;vertical-align:middle}
+  .slider-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .slider-row label{flex:1 1 200px;margin-bottom:0;font-size:13px;color:var(--muted)}
+  .slider-row input[type=range]{flex:1 1 160px}
+  .slider-row .slider-val{min-width:50px;text-align:right;font-weight:600;font-size:14px;font-variant-numeric:tabular-nums}
+  .explainer{font-size:12px;color:var(--muted);line-height:1.4;margin-top:6px;padding:8px 10px;background:var(--table-stripe);border-radius:6px;border-left:3px solid var(--accent2)}
+  .scenario-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
+  .scenario-col{background:var(--table-stripe);border-radius:8px;padding:12px}
+  .scenario-col h4{margin:0 0 8px;font-size:14px;color:var(--accent)}
+  .scenario-col.recommended{border:2px solid var(--accent2);background:#f0f8f4}
+  .scenario-label{font-size:11px;font-weight:600;text-transform:uppercase;color:var(--muted);letter-spacing:0.03em;margin-bottom:4px}
+  @media (max-width: 560px){
+    .scenario-grid{grid-template-columns:1fr}
+  }
   @media (max-width: 420px){
     body{padding:10px 8px 50px}
     h1{font-size:19px}
@@ -75,8 +89,8 @@
 <body>
 
 <header>
-  <h1>Calculadora de Aposentadoria</h1>
-  <p class="meta">Planeje sua renda em <strong>termos reais</strong> (acima da inflação), com sugestão de carteira em Tesouro Direto, LCI/LCA e CDB.</p>
+  <h1>Calculadora de Aposentadoria <span class="badge">v2</span></h1>
+  <p class="meta">Planeje sua renda em <strong>termos reais</strong> (acima da inflação), com projeção de longo prazo baseada em taxas de equilíbrio — não nas taxas cíclicas de hoje.</p>
   <p class="meta" id="updatedAt">Carregando taxas…</p>
 </header>
 
@@ -85,9 +99,9 @@
   <div class="stack" id="cenarioGrid">
     <div class="kv"><span class="k">Selic meta (a.a.)</span><span class="v" id="kSelic">—</span></div>
     <div class="kv"><span class="k">IPCA 12 meses</span><span class="v" id="kIpca12">—</span></div>
-    <div class="kv"><span class="k">Projeção IPCA próximos 12m (Focus)</span><span class="v" id="kIpcaFocus12">—</span></div>
-    <div class="kv"><span class="k">Projeção IPCA fim do ano (Focus)</span><span class="v" id="kIpcaFocusYE">—</span></div>
-    <div class="kv"><span class="k">CDI estimado (Selic − 0,10)</span><span class="v" id="kCdi">—</span></div>
+    <div class="kv"><span class="k">Focus IPCA 2026</span><span class="v" id="kIpcaFocusYE">—</span></div>
+    <div class="kv"><span class="k">Focus Selic fim 2026</span><span class="v" id="kFocusSelic">—</span></div>
+    <div class="kv"><span class="k">CDI</span><span class="v" id="kCdi">—</span></div>
   </div>
   <details>
     <summary>Tesouro Direto — taxas atuais</summary>
@@ -140,10 +154,40 @@
   <p class="hint">Todos os valores em R$ de hoje. As projeções usam taxas reais (descontada a inflação) e o IR já abatido conforme tabela regressiva (15% para horizonte > 720 dias).</p>
 </section>
 
+<section class="card" id="premissasLP">
+  <h2>Premissas de Longo Prazo</h2>
+  <details open>
+    <summary>Ajustar premissas estruturais</summary>
+    <div style="margin-top:10px">
+      <div class="slider-row">
+        <label for="slSelicReal">Selic real de longo prazo (a.a.)</label>
+        <input type="range" id="slSelicReal" min="2" max="8" step="0.1" value="4.5" />
+        <span class="slider-val" id="vSelicReal">4,5%</span>
+      </div>
+      <div class="slider-row">
+        <label for="slIpcaLP">IPCA de longo prazo (a.a.)</label>
+        <input type="range" id="slIpcaLP" min="2" max="8" step="0.1" value="3.8" />
+        <span class="slider-val" id="vIpcaLP">3,8%</span>
+      </div>
+      <div class="slider-row">
+        <label for="slSpreadIPCA">Spread real IPCA+ assumido (a.a.)</label>
+        <input type="range" id="slSpreadIPCA" min="4" max="9" step="0.1" value="7.0" />
+        <span class="slider-val" id="vSpreadIPCA">7,0%</span>
+      </div>
+      <p class="explainer">
+        Taxas atuais (Selic 14,75%) refletem ciclo monetário restritivo e não devem persistir por décadas.
+        Estas premissas refletem equilíbrio histórico de longo prazo. A projeção "Convergência ao equilíbrio"
+        usa estas taxas; a projeção "Se taxas atuais persistirem" usa as taxas nominais de hoje.
+      </p>
+    </div>
+  </details>
+</section>
+
 <section class="card" id="resultadoCard" style="display:none">
   <h2>Resultado</h2>
-  <div id="resumoMain" class="stack"></div>
-  <h3>Análise de gap</h3>
+  <h3>Comparação de Cenários</h3>
+  <div class="scenario-grid" id="cenarios"></div>
+  <h3>Análise de gap (cenário estrutural)</h3>
   <div id="gap" class="stack"></div>
   <details>
     <summary>Premissas usadas</summary>
@@ -157,8 +201,12 @@
   <div id="carteiraTable"></div>
   <p class="hint">Reserva de emergência (6 meses de despesas estimadas) é alocada em Tesouro Selic <strong>antes</strong> da carteira de longo prazo. As alocações abaixo se referem ao restante.</p>
   <div class="kv" style="margin-top:8px">
-    <span class="k">Taxa real líquida ponderada da carteira (a.a.)</span>
-    <span class="v" id="kCartReal">—</span>
+    <span class="k">Taxa real líquida ponderada — hoje (a.a.)</span>
+    <span class="v" id="kCartRealHoje">—</span>
+  </div>
+  <div class="kv">
+    <span class="k">Taxa real líquida ponderada — estrutural (a.a.)</span>
+    <span class="v" id="kCartRealEstr">—</span>
   </div>
 </section>
 
@@ -170,35 +218,27 @@
 "use strict";
 
 /* =============================================================
-   FALLBACKS — capturados em maio/2025 (knowledge cutoff).
-   Atualizados ao vivo sempre que as APIs do BCB / Tesouro
-   permitirem CORS no navegador do usuário.
+   FALLBACKS — abril/2026
 ============================================================= */
-const FALLBACK_DATE = "maio/2025";
+const FALLBACK_DATE = "abril/2026";
 const FALLBACK = {
-  selicMeta: 14.75,           // % a.a.
-  ipca12m:   5.32,            // % a.a. (acumulado 12m)
-  focusIpca12m: 4.50,         // % a.a. (mediana próximos 12m)
-  focusIpcaYE:  4.80,         // % a.a. (fim do ano corrente)
+  selicMeta: 14.75,
+  ipca12m:   4.14,
+  focusIpcaYE:  4.36,
+  focusSelic: 13.00,
+  cdi: 14.65,
   tesouroFetched: false,
   tesouro: [
-    // Tesouro Selic (pós-fixado)
-    { nome:"Tesouro Selic 2029",            tipo:"SELIC",     vencimento:"2029-03-01", taxaAnual: 0.10,  indexador:"SELIC" },
-    { nome:"Tesouro Selic 2031",            tipo:"SELIC",     vencimento:"2031-03-01", taxaAnual: 0.13,  indexador:"SELIC" },
-    // Prefixado
-    { nome:"Tesouro Prefixado 2027",        tipo:"PREFIXADO", vencimento:"2027-01-01", taxaAnual: 13.80, indexador:"PRE"   },
-    { nome:"Tesouro Prefixado 2029",        tipo:"PREFIXADO", vencimento:"2029-01-01", taxaAnual: 14.10, indexador:"PRE"   },
-    { nome:"Tesouro Prefixado JS 2031",     tipo:"PREFIXADO_JS", vencimento:"2031-01-01", taxaAnual: 14.05, indexador:"PRE" },
-    // IPCA+
-    { nome:"Tesouro IPCA+ 2029",            tipo:"IPCA",      vencimento:"2029-05-15", taxaAnual: 7.30,  indexador:"IPCA"  },
-    { nome:"Tesouro IPCA+ 2035",            tipo:"IPCA",      vencimento:"2035-05-15", taxaAnual: 7.20,  indexador:"IPCA"  },
-    { nome:"Tesouro IPCA+ 2045",            tipo:"IPCA",      vencimento:"2045-05-15", taxaAnual: 7.10,  indexador:"IPCA"  },
-    { nome:"Tesouro IPCA+ JS 2032",         tipo:"IPCA_JS",   vencimento:"2032-08-15", taxaAnual: 7.20,  indexador:"IPCA"  },
-    { nome:"Tesouro IPCA+ JS 2050",         tipo:"IPCA_JS",   vencimento:"2050-08-15", taxaAnual: 7.05,  indexador:"IPCA"  },
-    // RendA+
-    { nome:"Tesouro RendA+ 2030",           tipo:"RENDA_MAIS",vencimento:"2030-01-15", taxaAnual: 7.15,  indexador:"IPCA"  },
-    { nome:"Tesouro RendA+ 2040",           tipo:"RENDA_MAIS",vencimento:"2040-01-15", taxaAnual: 7.00,  indexador:"IPCA"  },
-    { nome:"Tesouro RendA+ 2065",           tipo:"RENDA_MAIS",vencimento:"2065-01-15", taxaAnual: 6.90,  indexador:"IPCA"  }
+    { nome:"Tesouro Selic 2031",              tipo:"SELIC",       vencimento:"2031-03-01", taxaAnual: 0.08, indexador:"SELIC" },
+    { nome:"Tesouro Prefixado 2029",          tipo:"PREFIXADO",   vencimento:"2029-01-01", taxaAnual: 13.41, indexador:"PRE" },
+    { nome:"Tesouro Prefixado 2032",          tipo:"PREFIXADO",   vencimento:"2032-01-01", taxaAnual: 13.59, indexador:"PRE" },
+    { nome:"Tesouro Prefixado JS 2037",       tipo:"PREFIXADO_JS",vencimento:"2037-01-01", taxaAnual: 13.68, indexador:"PRE" },
+    { nome:"Tesouro IPCA+ 2032",              tipo:"IPCA",        vencimento:"2032-05-15", taxaAnual: 7.50, indexador:"IPCA" },
+    { nome:"Tesouro IPCA+ 2040",              tipo:"IPCA",        vencimento:"2040-05-15", taxaAnual: 7.01, indexador:"IPCA" },
+    { nome:"Tesouro IPCA+ 2050",              tipo:"IPCA",        vencimento:"2050-05-15", taxaAnual: 6.86, indexador:"IPCA" },
+    { nome:"Tesouro IPCA+ JS 2037",           tipo:"IPCA_JS",     vencimento:"2037-08-15", taxaAnual: 7.30, indexador:"IPCA" },
+    { nome:"Tesouro IPCA+ JS 2045",           tipo:"IPCA_JS",     vencimento:"2045-08-15", taxaAnual: 7.07, indexador:"IPCA" },
+    { nome:"Tesouro IPCA+ JS 2060",           tipo:"IPCA_JS",     vencimento:"2060-08-15", taxaAnual: 7.07, indexador:"IPCA" }
   ]
 };
 
@@ -208,8 +248,9 @@ const FALLBACK = {
 const state = {
   selicMeta: FALLBACK.selicMeta,
   ipca12m:   FALLBACK.ipca12m,
-  focusIpca12m: FALLBACK.focusIpca12m,
   focusIpcaYE:  FALLBACK.focusIpcaYE,
+  focusSelic: FALLBACK.focusSelic,
+  cdi: FALLBACK.cdi,
   tesouro:   FALLBACK.tesouro,
   liveBCB:   false,
   liveFocus: false,
@@ -261,7 +302,6 @@ function fetchTimeout(url, ms){
 }
 
 async function loadBCB(){
-  // Selic meta (432) e IPCA 12m (13522) — ambos têm CORS habilitado.
   try{
     const r1 = await fetchTimeout("https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados/ultimos/1?formato=json", 8000);
     const j1 = await r1.json();
@@ -280,19 +320,14 @@ async function loadBCB(){
 }
 
 async function loadFocus(){
-  // Olinda Focus — Expectativas anuais. Filtra Indicador=IPCA, ano corrente e seguinte, baseCalculo=0.
   try{
     const ano = new Date().getFullYear();
     const url = "https://olinda.bcb.gov.br/olinda/servico/Expectativas/versao/v1/odata/ExpectativasMercadoAnuais?$top=80&$orderby=Data%20desc&$format=json&$filter=Indicador%20eq%20'IPCA'%20and%20baseCalculo%20eq%200%20and%20(DataReferencia%20eq%20'"+ano+"'%20or%20DataReferencia%20eq%20'"+(ano+1)+"')";
     const r = await fetchTimeout(url, 9000);
     const j = await r.json();
     const rows = j && j.value ? j.value : [];
-    // mais recente para ano corrente
     const ye = rows.find(x => String(x.DataReferencia) === String(ano));
     if(ye && typeof ye.Mediana === "number") state.focusIpcaYE = ye.Mediana;
-    // próximos 12m: aproximamos pela mediana mais recente do ano seguinte
-    const nx = rows.find(x => String(x.DataReferencia) === String(ano+1));
-    if(nx && typeof nx.Mediana === "number") state.focusIpca12m = nx.Mediana;
     state.liveFocus = true;
   }catch(e){
     state.errors.push("Focus: " + e.message);
@@ -300,7 +335,6 @@ async function loadFocus(){
 }
 
 async function loadTesouro(){
-  // Tesouro Direto JSON
   try{
     const r = await fetchTimeout("https://www.tesourodireto.com.br/json/br/com/b3/tesourodireto/service/api/treasurybondsinfo.json", 10000);
     const j = await r.json();
@@ -318,7 +352,7 @@ async function loadTesouro(){
       const upper = nome.toUpperCase();
       if(upper.indexOf("SELIC") >= 0){ tipo="SELIC"; indexador="SELIC"; }
       else if(upper.indexOf("IPCA") >= 0){
-        tipo = (upper.indexOf("JUROS SEMESTRAIS") >= 0) ? "IPCA_JS" : "IPCA";
+        tipo = (upper.indexOf("JUROS SEMESTRAIS") >= 0 || upper.indexOf("SEMESTRAL") >= 0) ? "IPCA_JS" : "IPCA";
         indexador="IPCA";
       } else if(upper.indexOf("RENDA") >= 0){
         tipo="RENDA_MAIS"; indexador="IPCA";
@@ -349,31 +383,25 @@ function aliquotaIR(diasUteis){
 }
 
 /* =============================================================
-   TAXAS REAIS LÍQUIDAS
-   - Para cada instrumento, dado um horizonte (anos) e IPCA esperado,
-     calcular a taxa real líquida anual.
+   TAXAS REAIS LÍQUIDAS — v1 model (nominal rates today)
 ============================================================= */
-function realLiquido({tipo, taxaAnual, indexador}, horizonteAnos, selic, ipca){
+function realLiquidoHoje({tipo, taxaAnual, indexador}, horizonteAnos, selic, ipca){
   const dias = Math.max(1, Math.round(horizonteAnos * 365));
   const ir = aliquotaIR(dias);
   const i = ipca/100;
-  let nominalAnual; // taxa nominal bruta a.a.
+  let nominalAnual;
   let irAplica = true;
-  let isLci = false;
 
   if(tipo === "SELIC"){
-    // taxaAnual é o spread sobre Selic (em pontos %). nominal ≈ Selic + spread
     nominalAnual = (selic + taxaAnual)/100;
   } else if(tipo === "PREFIXADO" || tipo === "PREFIXADO_JS"){
     nominalAnual = taxaAnual/100;
   } else if(tipo === "IPCA" || tipo === "IPCA_JS" || tipo === "RENDA_MAIS" || tipo === "EDUCA_MAIS"){
-    // (1+IPCA)*(1+r) - 1
     nominalAnual = (1 + i) * (1 + taxaAnual/100) - 1;
   } else if(tipo === "LCI" || tipo === "LCA"){
-    // taxaAnual aqui interpretamos como % do CDI; CDI ≈ Selic - 0.10
     const cdi = (selic - 0.10)/100;
     nominalAnual = cdi * (taxaAnual/100);
-    irAplica = false; isLci = true;
+    irAplica = false;
   } else if(tipo === "CDB"){
     const cdi = (selic - 0.10)/100;
     nominalAnual = cdi * (taxaAnual/100);
@@ -387,32 +415,92 @@ function realLiquido({tipo, taxaAnual, indexador}, horizonteAnos, selic, ipca){
     nominalAnual: nominalAnual*100,
     nominalLiqAnual: nominalLiq*100,
     realLiqAnual: realLiq*100,
-    ir: irAplica ? ir : 0,
-    isLci
+    ir: irAplica ? ir : 0
   };
 }
 
 /* =============================================================
-   SELEÇÃO DE TÍTULOS PARA A CARTEIRA
+   TAXAS REAIS LÍQUIDAS — v2 model (durable long-term rates)
+   Uses long-term assumptions instead of today's nominal rates.
+============================================================= */
+function realLiquidoEstrutural({tipo, taxaAnual, indexador}, horizonteAnos, premissas){
+  const dias = Math.max(1, Math.round(horizonteAnos * 365));
+  const ir = aliquotaIR(dias);
+  const selicRealLP = premissas.selicReal; // % a.a.
+
+  if(tipo === "IPCA" || tipo === "IPCA_JS" || tipo === "RENDA_MAIS" || tipo === "EDUCA_MAIS"){
+    // Contractual real spread IS the long-term real return.
+    // Use the assumed spread (not the specific bond's spread, but we can use either;
+    // we use the bond's spread since it's locked in at purchase).
+    // Approximate IR: 15% on the real return (conservative).
+    const realBruto = taxaAnual; // % e.g. 7.0
+    const realLiq = realBruto * (1 - 0.15);
+    return { realLiqAnual: realLiq };
+  }
+
+  if(tipo === "SELIC"){
+    // Floating-rate: converges to long-term real Selic
+    const realLiq = selicRealLP * (1 - 0.15);
+    return { realLiqAnual: realLiq };
+  }
+
+  if(tipo === "LCI" || tipo === "LCA"){
+    // ~90% CDI, CDI tracks Selic. Real ≈ 0.90 × long-term Selic real. No IR.
+    const realLiq = 0.90 * selicRealLP;
+    return { realLiqAnual: realLiq };
+  }
+
+  if(tipo === "CDB"){
+    // ~110% CDI. Real ≈ 1.10 × long-term Selic real, minus 15% IR.
+    const realLiq = 1.10 * selicRealLP * (1 - 0.15);
+    return { realLiqAnual: realLiq };
+  }
+
+  if(tipo === "PREFIXADO" || tipo === "PREFIXADO_JS"){
+    // Prefixado is a duration bet. For structural projection, approximate:
+    // locked nominal rate − long-term IPCA. Then IR on nominal gain.
+    // But this is fragile — we include it with caveat.
+    const ipcaLP = premissas.ipcaLP; // %
+    const nominalBruto = taxaAnual/100;
+    const nominalLiq = nominalBruto * (1 - 0.15);
+    const realLiq = ((1 + nominalLiq) / (1 + ipcaLP/100) - 1) * 100;
+    return { realLiqAnual: realLiq };
+  }
+
+  // fallback
+  return { realLiqAnual: selicRealLP * (1 - 0.15) };
+}
+
+/* =============================================================
+   SELEÇÃO DE TÍTULOS
 ============================================================= */
 function escolherTesouroSelicCurto(){
   const lista = state.tesouro.filter(t => t.tipo === "SELIC")
     .sort((a,b) => a.vencimento.localeCompare(b.vencimento));
   return lista[0] || null;
 }
-function escolherIPCAporHorizonte(anosAlvo){
-  // pega IPCA+ "puro" mais próximo do horizonte
-  const lista = state.tesouro.filter(t => t.tipo === "IPCA" || t.tipo === "RENDA_MAIS")
+function escolherIPCA(nomeContains){
+  // Find by partial name match
+  return state.tesouro.find(t =>
+    (t.tipo === "IPCA" || t.tipo === "IPCA_JS") && t.nome.indexOf(nomeContains) >= 0
+  ) || null;
+}
+function escolherIPCAporHorizonte(anosAlvo, tipoFiltro){
+  const tipos = tipoFiltro ? [tipoFiltro] : ["IPCA","RENDA_MAIS"];
+  const lista = state.tesouro.filter(t => tipos.includes(t.tipo))
     .map(t => ({ t, anos: anosAteVenc(t.vencimento) }))
     .sort((a,b) => Math.abs(a.anos - anosAlvo) - Math.abs(b.anos - anosAlvo));
   return lista[0] ? lista[0].t : null;
 }
-function escolherPrefixado(anosMin){
-  const lista = state.tesouro.filter(t => (t.tipo === "PREFIXADO" || t.tipo === "PREFIXADO_JS"))
-    .map(t => ({ t, anos: anosAteVenc(t.vencimento) }))
-    .filter(x => x.anos >= anosMin)
-    .sort((a,b) => a.anos - b.anos);
-  return lista[0] ? lista[0].t : (state.tesouro.find(t=>t.tipo==="PREFIXADO") || null);
+function escolherPrefixado(targetYear){
+  // Find prefixado with maturity closest to targetYear
+  const target = String(targetYear);
+  let found = state.tesouro.find(t =>
+    (t.tipo === "PREFIXADO" || t.tipo === "PREFIXADO_JS") && t.nome.indexOf(target) >= 0
+  );
+  if(found) return found;
+  // fallback: any prefixado
+  return state.tesouro.find(t => t.tipo === "PREFIXADO") || null;
 }
 function anosAteVenc(iso){
   if(!iso) return 0;
@@ -422,69 +510,78 @@ function anosAteVenc(iso){
 }
 
 /* =============================================================
-   PERFIS
+   PERFIS — v2 allocations per spec
 ============================================================= */
 function montarCarteira(perfil, horizonteAnos){
-  // alocações % (sobre o total ex-reserva)
+  const premissas = getLongTermPremissas();
   let alocacao;
+
   if(perfil === "conservador"){
     alocacao = [
-      { classe:"Tesouro Selic",  pct:50, fn: () => escolherTesouroSelicCurto(),
-        descricao:"Liquidez e proteção ao CDI" },
-      { classe:"Tesouro IPCA+",  pct:30, fn: () => escolherIPCAporHorizonte(Math.min(horizonteAnos, 7)),
+      { classe:"LCI/LCA",         pct:50, fn: () => ({ nome:"LCI/LCA 90% CDI", tipo:"LCI", taxaAnual:90, vencimento:isoMaisAnos(2), indexador:"CDI" }),
+        descricao:"Isento de IR; liquidez curta" },
+      { classe:"Tesouro IPCA+ 2032", pct:30, fn: () => escolherIPCA("2032") || escolherIPCAporHorizonte(6, "IPCA"),
         descricao:"Inflação + juro real, vencimento curto" },
-      { classe:"LCI/LCA",        pct:20, fn: () => ({ nome:"LCI/LCA 95% CDI (12-24m)", tipo:"LCI", taxaAnual:95, vencimento:isoMaisAnos(2), indexador:"CDI" }),
-        descricao:"Isento de IR; 12-24 meses" }
+      { classe:"Tesouro Selic",    pct:20, fn: () => escolherTesouroSelicCurto(),
+        descricao:"Liquidez e proteção ao CDI" }
     ];
   } else if(perfil === "arrojado"){
     alocacao = [
-      { classe:"Tesouro IPCA+",  pct:45, fn: () => escolherIPCAporHorizonte(Math.max(horizonteAnos, 12)),
-        descricao:"Juro real longo" },
-      { classe:"Tesouro Prefixado", pct:25, fn: () => escolherPrefixado(4),
-        descricao:"Trava de taxa nominal" },
-      { classe:"LCI/LCA",        pct:15, fn: () => ({ nome:"LCI/LCA 92% CDI (24-36m)", tipo:"LCI", taxaAnual:92, vencimento:isoMaisAnos(3), indexador:"CDI" }),
+      { classe:"LCI/LCA",         pct:25, fn: () => ({ nome:"LCI/LCA 90% CDI", tipo:"LCI", taxaAnual:90, vencimento:isoMaisAnos(2), indexador:"CDI" }),
         descricao:"Isento de IR" },
-      { classe:"CDB liquidez diária", pct:15, fn: () => ({ nome:"CDB 110% CDI (>720d)", tipo:"CDB", taxaAnual:110, vencimento:isoMaisAnos(3), indexador:"CDI" }),
-        descricao:"Diversifica emissor" }
+      { classe:"Tesouro IPCA+ 2050", pct:25, fn: () => escolherIPCA("2050") || escolherIPCAporHorizonte(24, "IPCA"),
+        descricao:"Juro real longo" },
+      { classe:"Tesouro IPCA+ JS 2060", pct:25, fn: () => escolherIPCA("2060") || escolherIPCAporHorizonte(34, "IPCA_JS"),
+        descricao:"Juro real longo, juros semestrais" },
+      { classe:"Tesouro Prefixado 2032", pct:25, fn: () => escolherPrefixado(2032),
+        descricao:"Trava de taxa nominal (aposta direcional)" }
     ];
   } else { // moderado
     alocacao = [
-      { classe:"Tesouro IPCA+",  pct:35, fn: () => escolherIPCAporHorizonte(Math.max(horizonteAnos, 8)),
-        descricao:"Juro real médio/longo" },
-      { classe:"LCI/LCA",        pct:25, fn: () => ({ nome:"LCI/LCA 94% CDI (24m)", tipo:"LCI", taxaAnual:94, vencimento:isoMaisAnos(2), indexador:"CDI" }),
+      { classe:"LCI/LCA",         pct:35, fn: () => ({ nome:"LCI/LCA 90% CDI", tipo:"LCI", taxaAnual:90, vencimento:isoMaisAnos(2), indexador:"CDI" }),
         descricao:"Isento de IR; 24 meses" },
-      { classe:"Tesouro Prefixado", pct:20, fn: () => escolherPrefixado(3),
-        descricao:"Trava parcial de taxa nominal" },
-      { classe:"Tesouro Selic",  pct:20, fn: () => escolherTesouroSelicCurto(),
-        descricao:"Liquidez e amortecedor" }
+      { classe:"Tesouro IPCA+ 2040", pct:35, fn: () => escolherIPCA("2040") || escolherIPCAporHorizonte(14, "IPCA"),
+        descricao:"Juro real médio/longo" },
+      { classe:"Tesouro IPCA+ 2050", pct:15, fn: () => escolherIPCA("2050") || escolherIPCAporHorizonte(24, "IPCA"),
+        descricao:"Juro real longo" },
+      { classe:"Tesouro Prefixado 2032", pct:15, fn: () => escolherPrefixado(2032),
+        descricao:"Trava parcial de taxa nominal" }
     ];
   }
 
   const itens = alocacao.map(a => {
     const t = a.fn();
     if(!t) return null;
-    const r = realLiquido(t, horizonteAnos, state.selicMeta, state.focusIpca12m);
+    const rHoje = realLiquidoHoje(t, horizonteAnos, state.selicMeta, state.focusIpcaYE);
+    const rEstr = realLiquidoEstrutural(t, horizonteAnos, premissas);
     return Object.assign({}, a, {
       titulo: t,
-      nominalBruta: r.nominalAnual,
-      nominalLiq: r.nominalLiqAnual,
-      realLiq: r.realLiqAnual,
-      ir: r.ir
+      realLiqHoje: rHoje.realLiqAnual,
+      realLiqEstr: rEstr.realLiqAnual,
+      ir: rHoje.ir
     });
   }).filter(Boolean);
 
-  // normaliza pcts caso algum item caia
   const total = itens.reduce((s,x)=>s+x.pct,0) || 1;
   itens.forEach(x => x.pct = x.pct * 100 / total);
 
-  const realCarteira = itens.reduce((s,x) => s + x.pct/100 * x.realLiq, 0);
-  return { itens, realCarteira };
+  const realCarteiraHoje = itens.reduce((s,x) => s + x.pct/100 * x.realLiqHoje, 0);
+  const realCarteiraEstr = itens.reduce((s,x) => s + x.pct/100 * x.realLiqEstr, 0);
+  return { itens, realCarteiraHoje, realCarteiraEstr };
 }
 
 function isoMaisAnos(n){
   const d = new Date();
   d.setFullYear(d.getFullYear() + n);
   return d.toISOString().substring(0,10);
+}
+
+function getLongTermPremissas(){
+  return {
+    selicReal: parseFloat(document.getElementById("slSelicReal").value),
+    ipcaLP: parseFloat(document.getElementById("slIpcaLP").value),
+    spreadIPCA: parseFloat(document.getElementById("slSpreadIPCA").value)
+  };
 }
 
 /* =============================================================
@@ -517,7 +614,6 @@ function aaToMensal(taxaAnualPct){
 function mesesParaAtingir(P, C, rMensal, FVAlvo){
   if(P >= FVAlvo) return 0;
   if(C <= 0 && rMensal <= 0) return Infinity;
-  // busca por aproximação
   let lo = 0, hi = 12*120;
   for(let i=0;i<60;i++){
     const mid = (lo+hi)/2;
@@ -533,9 +629,9 @@ function mesesParaAtingir(P, C, rMensal, FVAlvo){
 function renderCenario(){
   document.getElementById("kSelic").textContent = fmtPct(state.selicMeta);
   document.getElementById("kIpca12").textContent = fmtPct(state.ipca12m);
-  document.getElementById("kIpcaFocus12").textContent = fmtPct(state.focusIpca12m);
   document.getElementById("kIpcaFocusYE").textContent = fmtPct(state.focusIpcaYE);
-  document.getElementById("kCdi").textContent = fmtPct(Math.max(0, state.selicMeta - 0.10));
+  document.getElementById("kFocusSelic").textContent = fmtPct(state.focusSelic);
+  document.getElementById("kCdi").textContent = fmtPct(state.cdi);
 
   const liveAll = state.liveBCB && state.liveFocus && state.liveTD;
   const liveAny = state.liveBCB || state.liveFocus || state.liveTD;
@@ -549,7 +645,11 @@ function renderCenario(){
     (liveAll ? "" : " &middot; alguns dados são fallback de " + FALLBACK_DATE);
 
   // tabela TD
-  const tb = state.tesouro.slice().sort((a,b) => a.vencimento.localeCompare(b.vencimento));
+  const tb = state.tesouro.slice().sort((a,b) => {
+    const order = { SELIC:0, PREFIXADO:1, PREFIXADO_JS:1, IPCA:2, IPCA_JS:3, RENDA_MAIS:4, EDUCA_MAIS:5 };
+    const d = (order[a.tipo]||9) - (order[b.tipo]||9);
+    return d !== 0 ? d : a.vencimento.localeCompare(b.vencimento);
+  });
   let html = '<table><thead><tr><th>Título</th><th class="num">Taxa a.a.</th><th>Vencimento</th></tr></thead><tbody>';
   for(const t of tb){
     const tx = (t.tipo === "SELIC") ? ("Selic + " + fmtDec(t.taxaAnual) + "%")
@@ -572,6 +672,39 @@ function renderCenario(){
   document.getElementById("sources").innerHTML = s;
 }
 
+function renderSliderValues(){
+  document.getElementById("vSelicReal").textContent = fmtDec(parseFloat(document.getElementById("slSelicReal").value)) + "%";
+  document.getElementById("vIpcaLP").textContent = fmtDec(parseFloat(document.getElementById("slIpcaLP").value)) + "%";
+  document.getElementById("vSpreadIPCA").textContent = fmtDec(parseFloat(document.getElementById("slSpreadIPCA").value)) + "%";
+}
+
+function computeScenario(patrim, aporte, realAA, mesesAcum, mesesApos, rendaAlvo){
+  const realMM = aaToMensal(realAA);
+  const fv = fvComAportes(patrim, aporte, realMM, mesesAcum);
+  const patrimNecessario = patrimonioParaRenda(rendaAlvo, realMM, mesesApos);
+  const rendaSust = rendaSustentavelMensal(fv, realMM, mesesApos);
+  const aporteNec = aporteParaAtingir(patrimNecessario, patrim, realMM, mesesAcum);
+  const mesesAteAlvo = mesesParaAtingir(patrim, aporte, realMM, patrimNecessario);
+  return { fv, patrimNecessario, rendaSust, aporteNec, mesesAteAlvo, realAA };
+}
+
+function renderScenarioCol(sc, rendaAlvo, label, isRecommended){
+  const cls = isRecommended ? "scenario-col recommended" : "scenario-col";
+  const tag = isRecommended ? '<span class="badge" style="background:#dff3e8;color:#177245">recomendado</span>' : '';
+  let h = '<div class="'+cls+'">';
+  h += '<div class="scenario-label">'+label+' '+tag+'</div>';
+  h += '<div class="kv"><span class="k">Taxa real líq. carteira</span><span class="v">'+fmtPct(sc.realAA)+' a.a.</span></div>';
+  h += '<div class="kv"><span class="k">Patrimônio na aposentadoria</span><span class="v big">'+fmtMoney(sc.fv)+'</span></div>';
+  h += '<div class="kv"><span class="k">Renda mensal sustentável</span><span class="v big '+(sc.rendaSust>=rendaAlvo?'ok':'alert')+'">'+fmtMoney(sc.rendaSust)+'</span></div>';
+  const gap = sc.fv - sc.patrimNecessario;
+  h += '<div class="kv"><span class="k">Gap vs alvo</span><span class="v '+(gap>=0?'ok':'alert')+'">'+(gap>=0?"+":"")+fmtMoney(gap)+'</span></div>';
+  if(sc.rendaSust < rendaAlvo && isFinite(sc.mesesAteAlvo) && sc.mesesAteAlvo > 0){
+    h += '<div class="kv"><span class="k">Anos p/ atingir alvo</span><span class="v">'+fmtDec(sc.mesesAteAlvo/12)+'</span></div>';
+  }
+  h += '</div>';
+  return h;
+}
+
 function renderResultado(){
   const idade = +document.getElementById("idade").value;
   const idadeApos = +document.getElementById("idadeApos").value;
@@ -590,107 +723,105 @@ function renderResultado(){
   const anosApos = expVida - idadeApos;
   const mesesAcum = anosAcum * 12;
   const mesesApos = anosApos * 12;
-
-  // Reserva de emergência: 6× renda alvo (carved out, fica em Selic — neutra na carteira)
   const reservaMin = rendaAlvo * 6;
 
   const carteira = montarCarteira(perfil, anosAcum);
-  const realAA = carteira.realCarteira;     // % a.a. real líquido ponderado
-  const realMM = aaToMensal(realAA);
 
-  // Acumulação
-  const fv = fvComAportes(patrim, aporte, realMM, mesesAcum);
-  // Patrimônio necessário para a renda alvo durante a aposentadoria
-  const patrimNecessario = patrimonioParaRenda(rendaAlvo, realMM, mesesApos);
-  // Renda sustentável dado o patrimônio projetado
-  const rendaSust = rendaSustentavelMensal(fv, realMM, mesesApos);
-  // Aporte necessário para fechar gap
-  const aporteNecessario = aporteParaAtingir(patrimNecessario, patrim, realMM, mesesAcum);
-  // Tempo até atingir alvo com o aporte atual
-  const mesesAteAlvo = mesesParaAtingir(patrim, aporte, realMM, patrimNecessario);
+  // v1 scenario (today's nominal rates)
+  const scV1 = computeScenario(patrim, aporte, carteira.realCarteiraHoje, mesesAcum, mesesApos, rendaAlvo);
+  // v2 scenario (durable long-term rates)
+  const scV2 = computeScenario(patrim, aporte, carteira.realCarteiraEstr, mesesAcum, mesesApos, rendaAlvo);
 
+  // Show results
   const card = document.getElementById("resultadoCard");
   card.style.display = "";
 
-  const main = [];
-  main.push('<div class="kv"><span class="k">Anos até a aposentadoria</span><span class="v">'+fmtInt(anosAcum)+'</span></div>');
-  main.push('<div class="kv"><span class="k">Anos de aposentadoria projetados</span><span class="v">'+fmtInt(anosApos)+'</span></div>');
-  main.push('<div class="kv"><span class="k">Taxa real líquida estimada (carteira)</span><span class="v">'+fmtPct(realAA)+' a.a.</span></div>');
-  main.push('<div class="kv"><span class="k">Patrimônio projetado na aposentadoria</span><span class="v big">'+fmtMoney(fv)+'</span></div>');
-  main.push('<div class="kv"><span class="k">Renda mensal sustentável (R$ de hoje)</span><span class="v big '+(rendaSust>=rendaAlvo?'ok':'alert')+'">'+fmtMoney(rendaSust)+'</span></div>');
-  document.getElementById("resumoMain").innerHTML = main.join("");
+  let cenH = '';
+  cenH += renderScenarioCol(scV1, rendaAlvo, "Se taxas atuais persistirem", false);
+  cenH += renderScenarioCol(scV2, rendaAlvo, "Convergência ao equilíbrio", true);
+  document.getElementById("cenarios").innerHTML = cenH;
 
+  // Gap analysis (based on structural/v2)
   const gap = [];
-  gap.push('<div class="kv"><span class="k">Patrimônio-alvo (para renda desejada)</span><span class="v">'+fmtMoney(patrimNecessario)+'</span></div>');
-  const dif = fv - patrimNecessario;
-  gap.push('<div class="kv"><span class="k">Diferença</span><span class="v '+(dif>=0?'ok':'alert')+'">'+(dif>=0?"+":"")+fmtMoney(dif)+'</span></div>');
-  if(rendaSust < rendaAlvo){
-    gap.push('<div class="kv"><span class="k">Aporte mensal necessário</span><span class="v alert">'+fmtMoney(aporteNecessario)+'</span></div>');
-    if(isFinite(mesesAteAlvo) && mesesAteAlvo > 0){
-      const anos = mesesAteAlvo/12;
-      gap.push('<div class="kv"><span class="k">Tempo p/ atingir alvo (aporte atual)</span><span class="v">'+fmtDec(anos)+' anos</span></div>');
-    }
+  gap.push('<div class="kv"><span class="k">Anos até a aposentadoria</span><span class="v">'+fmtInt(anosAcum)+'</span></div>');
+  gap.push('<div class="kv"><span class="k">Anos de aposentadoria projetados</span><span class="v">'+fmtInt(anosApos)+'</span></div>');
+  gap.push('<div class="kv"><span class="k">Patrimônio-alvo (para renda desejada)</span><span class="v">'+fmtMoney(scV2.patrimNecessario)+'</span></div>');
+  if(scV2.rendaSust < rendaAlvo){
+    gap.push('<div class="kv"><span class="k">Aporte mensal necessário (cenário estrutural)</span><span class="v alert">'+fmtMoney(scV2.aporteNec)+'</span></div>');
   } else {
-    gap.push('<div class="kv"><span class="k ok">Você está acima do alvo</span><span class="v ok">superávit '+fmtMoney(dif)+'</span></div>');
+    const dif = scV2.fv - scV2.patrimNecessario;
+    gap.push('<div class="kv"><span class="k ok">Acima do alvo (cenário estrutural)</span><span class="v ok">superávit '+fmtMoney(dif)+'</span></div>');
   }
   gap.push('<div class="kv"><span class="k">Reserva de emergência sugerida (6× renda alvo)</span><span class="v">'+fmtMoney(reservaMin)+'</span></div>');
   document.getElementById("gap").innerHTML = gap.join("");
 
+  // Premissas
   const prem = [];
-  prem.push('<div class="kv"><span class="k">Inflação esperada (Focus 12m)</span><span class="v">'+fmtPct(state.focusIpca12m)+'</span></div>');
+  const p = getLongTermPremissas();
+  prem.push('<div class="kv"><span class="k">Selic real de longo prazo</span><span class="v">'+fmtPct(p.selicReal)+'</span></div>');
+  prem.push('<div class="kv"><span class="k">IPCA de longo prazo</span><span class="v">'+fmtPct(p.ipcaLP)+'</span></div>');
+  prem.push('<div class="kv"><span class="k">Spread IPCA+ assumido</span><span class="v">'+fmtPct(p.spreadIPCA)+'</span></div>');
+  prem.push('<div class="kv"><span class="k">Selic atual (cenário "taxas de hoje")</span><span class="v">'+fmtPct(state.selicMeta)+'</span></div>');
+  prem.push('<div class="kv"><span class="k">IPCA Focus (cenário "taxas de hoje")</span><span class="v">'+fmtPct(state.focusIpcaYE)+'</span></div>');
   prem.push('<div class="kv"><span class="k">IR sobre Tesouro/CDB (>720d)</span><span class="v">15,00%</span></div>');
   prem.push('<div class="kv"><span class="k">LCI/LCA</span><span class="v">isento de IR</span></div>');
-  prem.push('<div class="kv"><span class="k">Conversão de taxa</span><span class="v">a.a. → a.m. composta</span></div>');
-  prem.push('<div class="kv"><span class="k">Modelo de saque</span><span class="v">anuidade real (saque constante)</span></div>');
+  prem.push('<div class="kv"><span class="k">Modelo de saque</span><span class="v">anuidade real (saque constante em R$ de hoje)</span></div>');
   document.getElementById("premissas").innerHTML = prem.join("");
 
   // Carteira
   const cc = document.getElementById("carteiraCard");
   cc.style.display = "";
   document.getElementById("carteiraIntro").textContent =
-    "Perfil " + perfil + " · horizonte de " + fmtInt(anosAcum) + " anos. As taxas reais já consideram IR e a inflação esperada (Focus).";
-  let h = '<table><thead><tr><th>Instrumento</th><th class="num">%</th><th class="num">Tx nominal</th><th class="num">Tx real líq.</th><th>Vencimento</th></tr></thead><tbody>';
+    "Perfil " + perfil + " · horizonte de " + fmtInt(anosAcum) + " anos. A coluna \"estrutural\" alimenta a projeção recomendada.";
+
+  let h = '<table><thead><tr><th>Instrumento</th><th class="num">%</th><th class="num">Real líq. hoje</th><th class="num">Real líq. estrutural</th></tr></thead><tbody>';
   for(const it of carteira.itens){
     const t = it.titulo;
-    const taxaTxt = (t.tipo==="SELIC") ? ("Selic + " + fmtDec(t.taxaAnual) + "%")
-                   : (t.tipo==="IPCA"||t.tipo==="IPCA_JS"||t.tipo==="RENDA_MAIS"||t.tipo==="EDUCA_MAIS") ? ("IPCA + " + fmtDec(t.taxaAnual) + "%")
-                   : (t.tipo==="LCI"||t.tipo==="LCA"||t.tipo==="CDB") ? (fmtDec(t.taxaAnual) + "% CDI")
-                   : (fmtDec(t.taxaAnual) + "%");
-    h += "<tr><td><strong>"+it.classe+"</strong><br><span class='hint'>"+t.nome+"</span><br><span class='hint'>"+it.descricao+"</span></td>"
+    const nomeTxt = it.classe;
+    const descTxt = t.nome;
+    const isPre = (t.tipo === "PREFIXADO" || t.tipo === "PREFIXADO_JS");
+    const caveat = isPre ? ' <span class="hint" style="color:var(--warn)">(aposta direcional)</span>' : '';
+    h += "<tr><td><strong>"+nomeTxt+"</strong>"+caveat+"<br><span class='hint'>"+descTxt+"</span><br><span class='hint'>"+it.descricao+"</span></td>"
        + "<td class='num'>"+fmtDec(it.pct)+"%</td>"
-       + "<td class='num'>"+taxaTxt+"</td>"
-       + "<td class='num'>"+fmtPct(it.realLiq)+"</td>"
-       + "<td>"+fmtVencimento(t.vencimento)+"</td></tr>";
+       + "<td class='num'>"+fmtPct(it.realLiqHoje)+"</td>"
+       + "<td class='num'>"+fmtPct(it.realLiqEstr)+"</td></tr>";
   }
   h += "</tbody></table>";
   document.getElementById("carteiraTable").innerHTML = h;
-  document.getElementById("kCartReal").textContent = fmtPct(carteira.realCarteira);
+  document.getElementById("kCartRealHoje").textContent = fmtPct(carteira.realCarteiraHoje);
+  document.getElementById("kCartRealEstr").textContent = fmtPct(carteira.realCarteiraEstr);
 }
 
 /* =============================================================
    BOOT
 ============================================================= */
 async function boot(){
-  // Tenta tudo em paralelo, mas não trava se um falhar
   await Promise.all([loadBCB(), loadFocus(), loadTesouro()]);
   state.fetchedAt = new Date();
   renderCenario();
-  // dispara cálculo inicial
   try{ renderResultado(); }catch(e){ console.error(e); }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("calcular").addEventListener("click", renderResultado);
-  // recálculo on-the-fly em mudança de inputs (debounce simples)
+  // slider live display
+  ["slSelicReal","slIpcaLP","slSpreadIPCA"].forEach(id => {
+    document.getElementById(id).addEventListener("input", () => {
+      renderSliderValues();
+    });
+  });
+  renderSliderValues();
+
+  // recálculo on-the-fly
   let to = null;
-  const ids = ["idade","idadeApos","expVida","patrim","aporte","rendaAlvo","perfil"];
+  const ids = ["idade","idadeApos","expVida","patrim","aporte","rendaAlvo","perfil","slSelicReal","slIpcaLP","slSpreadIPCA"];
   ids.forEach(id => {
     document.getElementById(id).addEventListener("input", () => {
       clearTimeout(to);
       to = setTimeout(renderResultado, 300);
     });
   });
-  renderCenario(); // mostra fallback imediatamente
+  renderCenario();
   boot();
 });
 </script>
